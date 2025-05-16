@@ -28,10 +28,58 @@ export default function AddBookPage() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: Add backend upload logic here
-    setModalOpen(true);
+
+    if (!book.image) {
+      alert("Please select an image.");
+      return;
+    }
+
+    try {
+      // 1. Get presigned S3 URL
+      const uploadUrlRes = await fetch("https://b4diorui5a.execute-api.eu-north-1.amazonaws.com/getUploadUrl");
+      const { uploadUrl } = await uploadUrlRes.json();
+
+      // 2. Upload image to S3
+      await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          "Content-Type": book.image.type,
+        },
+        body: book.image,
+      });
+
+      // 3. Get final image URL (remove query params)
+      const imageUrl = uploadUrl.split('?')[0];
+
+      // 4. Save book metadata with image URL to DynamoDB
+      const metadata = {
+        title: book.title,
+        author: book.author,
+        genre: book.genre,
+        condition: book.condition,
+        location: book.location,
+        imageUrl,
+      };
+
+      const res = await fetch("https://b4diorui5a.execute-api.eu-north-1.amazonaws.com/addBook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(metadata)
+      });
+
+      if (!res.ok) throw new Error("Failed to save book metadata");
+
+      setModalOpen(true);
+      setBook({ title: '', author: '', genre: '', condition: '', location: '', image: '' });
+      setImagePreview(null);
+    } catch (err) {
+      console.error("Error submitting book:", err);
+      alert("Failed to upload book. Please try again.");
+    }
   };
 
   return (

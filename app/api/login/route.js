@@ -14,7 +14,7 @@ export async function POST(request) {
     const data = await res.json();
 
     if (!res.ok) {
-      return NextResponse.json({ message: data.message || 'Login failed' }, { status: 400 });
+      return NextResponse.json({ message: data.message || 'Invalid Credentials' }, { status: 400 });
     }
 
     // You may want to set a cookie or JWT here for session (later step)
