@@ -4,6 +4,9 @@ import Navbar from './components/Navbar';
 export const metadata = {
   title: 'BookBuddy',
   description: 'Exchange books with people nearby',
+  icons: {
+    icon: '/bookbuddy.png',
+  },
 };
 
 export default function RootLayout({ children }) {
