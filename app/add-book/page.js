@@ -1,8 +1,13 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Modal from '../components/Modal';
 
 export default function AddBookPage() {
+  const router = useRouter();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showMessage, setShowMessage] = useState(false);
   const [book, setBook] = useState({
     title: '',
     author: '',
@@ -13,7 +18,16 @@ export default function AddBookPage() {
   });
 
   const [imagePreview, setImagePreview] = useState(null);
-  const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (!user) {
+      router.push('/login');
+    } else {
+      setIsLoggedIn(true);
+      setLoading(false);
+    }
+  }, []);
 
   const handleChange = (e) => {
     setBook({ ...book, [e.target.name]: e.target.value });
@@ -36,55 +50,23 @@ export default function AddBookPage() {
       return;
     }
 
-    try {
-      // 1. Get presigned S3 URL
-      const uploadUrlRes = await fetch("https://b4diorui5a.execute-api.eu-north-1.amazonaws.com/getUploadUrl");
-      const { uploadUrl } = await uploadUrlRes.json();
-
-      // 2. Upload image to S3
-      await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: {
-          "Content-Type": book.image.type,
-        },
-        body: book.image,
-      });
-
-      // 3. Get final image URL (remove query params)
-      const imageUrl = uploadUrl.split('?')[0];
-
-      // 4. Save book metadata with image URL to DynamoDB
-      const metadata = {
-        title: book.title,
-        author: book.author,
-        genre: book.genre,
-        condition: book.condition,
-        location: book.location,
-        imageUrl,
-      };
-
-      const res = await fetch("https://b4diorui5a.execute-api.eu-north-1.amazonaws.com/addBook", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(metadata)
-      });
-
-      if (!res.ok) throw new Error("Failed to save book metadata");
-
-      setModalOpen(true);
+    setShowMessage(true);
+    setTimeout(() => {
+      setShowMessage(false);
       setBook({ title: '', author: '', genre: '', condition: '', location: '', image: '' });
       setImagePreview(null);
-    } catch (err) {
-      console.error("Error submitting book:", err);
-      alert("Failed to upload book. Please try again.");
-    }
+    }, 3000);
   };
+
+  // Don't render anything while checking authentication
+  if (loading || !isLoggedIn) {
+    return null;
+  }
 
   return (
     <div className="max-w-2xl mx-auto mt-10 px-4">
       <h1 className="text-3xl font-bold text-blue-700 dark:text-blue-400 text-center mb-6">Add a New Book</h1>
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {['title', 'author', 'genre', 'condition', 'location'].map((field) => (
           <input
@@ -97,12 +79,11 @@ export default function AddBookPage() {
             className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2
                        bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                       transition-shadow duration-300
-                       shadow-sm hover:shadow-md"
+                       transition-shadow duration-300 shadow-sm hover:shadow-md"
           />
         ))}
 
-        {/* Custom Styled File Upload */}
+        {/* File Upload */}
         <label
           htmlFor="image-upload"
           className="flex flex-col items-center justify-center w-full h-40
@@ -110,10 +91,8 @@ export default function AddBookPage() {
                      rounded cursor-pointer
                      bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400
                      hover:border-blue-500 hover:text-blue-600
-                     transition-colors duration-300
-                     shadow-sm hover:shadow-md
-                     focus-within:ring-2 focus-within:ring-blue-500
-                     relative overflow-hidden"
+                     transition-colors duration-300 shadow-sm hover:shadow-md
+                     focus-within:ring-2 focus-within:ring-blue-500 relative overflow-hidden"
         >
           {!imagePreview && (
             <>
@@ -144,7 +123,6 @@ export default function AddBookPage() {
               alt="Preview"
               className="h-full w-full object-contain rounded"
               onClick={() => {
-                // Optional: click preview to clear image
                 setImagePreview(null);
                 setBook({ ...book, image: '' });
               }}
@@ -156,16 +134,19 @@ export default function AddBookPage() {
         <button
           type="submit"
           className="w-full bg-blue-600 dark:bg-blue-500 text-white py-2 rounded
-                     shadow-md hover:shadow-lg
-                     transition-shadow duration-300"
+                     shadow-md hover:shadow-lg transition-shadow duration-300"
         >
           Submit Book
         </button>
       </form>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Success!">
-        <p>Your book was submitted successfully.</p>
-      </Modal>
+      {/* Coming Soon Message */}
+      {showMessage && (
+        <div className="fixed bottom-4 right-4 bg-black text-white px-6 py-3 rounded-lg shadow-lg
+                      animate-fade-in-up">
+          Feature coming soon! Stay tuned! 🚀
+        </div>
+      )}
     </div>
   );
 }
